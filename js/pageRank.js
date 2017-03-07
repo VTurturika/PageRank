@@ -1,3 +1,5 @@
+'use strict';
+
 class PageRank {
 
     static accuracyAchieved(a, b, precision) {
@@ -37,7 +39,3 @@ class PageRank {
         return rank._data;
     }
 }
-
-
-
-

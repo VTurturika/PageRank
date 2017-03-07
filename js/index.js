@@ -3,6 +3,8 @@
 let network;
 let nodes;
 let edges;
+
+let ids = {};
 let nextNodeId;
 
 $(document).ready(() => {
@@ -14,15 +16,11 @@ $(document).ready(() => {
 
         if (beta > 0 && beta < 1 && precision > 0 && precision < 1) {
 
-            let generatedData = generateTransitionMatrix();
-            let ranks = PageRank.withTaxation(generatedData.matrix, precision, beta);
+            let ranks = PageRank.withTaxation(generateTransitionMatrix(), precision, beta);
 
-            console.log(ranks);
-
-            generatedData.ids.forEach((id, i) => {
+            Object.keys(ids).forEach((id, i) => {
 
                 let rank = (ranks[i] * 100).toPrecision(5);
-
                 nodes.update({id: id, title: rank + "%", value: rank});
             })
         }
@@ -72,12 +70,14 @@ function initNetwork() {
     let options = {
 
         manipulation: {
+
             addNode: function (data, callback) {
 
                 data.id = nextNodeId;
                 data.title = nextNodeId;
-                data.label = nextNodeId++;
+                data.label = nextNodeId;
                 data.value = 0;
+                ids[nextNodeId] = true;
                 callback(data);
             },
 
@@ -86,10 +86,17 @@ function initNetwork() {
                 data.id = "" + data.from + data.to;
                 data.arrows = "to";
                 callback(data);
+            },
+
+            deleteNode: function(data, callback) {
+
+                delete ids[data.nodes[0]];
+                callback(data);
             }
         },
 
         physics: {solver: 'forceAtlas2Based'},
+
         nodes: {
             scaling: {
                 label: {
@@ -101,46 +108,33 @@ function initNetwork() {
     };
 
     network = new vis.Network(container, generateNetworkData(), options);
+
+    nodes.getIds().forEach(id => {
+        ids[id] = true;
+    });
     nextNodeId = nodes.length;
 }
 
 function generateTransitionMatrix() {
 
-    let maxId = nodes.max("id").id + 1;
     let matrix = [];
-    let nodesIds = [];
+    Object.keys(ids).forEach(id => {
 
-    nodes.forEach(node => {
-
-        let row = new Array(maxId).fill(0);
-
-        connectedNodesFromNode(node.id).forEach((connectedNode, _, array) => {
+        let row = new Array(nodes.length).fill(0);
+        connectedNodesFromNode(id).forEach((connectedNode, _, array) => {
 
             row[connectedNode] = 1 / array.length;
         });
 
         matrix.push(row);
-        nodesIds.push(node.id)
     });
 
-    matrix = matrix[0].map((x, i) => matrix.map(x => x[i])); // transposing matrix
-    let resultMatrix = [];
-
-    for (let i = 0; i < maxId; i++) {
-
-        if (nodesIds.indexOf(i) != -1) {
-
-            resultMatrix.push(matrix[i])
-        }
-    }
-
-    return {matrix: resultMatrix, ids: nodesIds};
+    return matrix[0].map((x, i) => matrix.map(x => x[i])); // transposed matrix
 }
 
 function connectedNodesFromNode(nodeId) {
 
     let result = [];
-
     edges.get().forEach(edge => {
 
         if (edge.from == nodeId) {
@@ -150,4 +144,3 @@ function connectedNodesFromNode(nodeId) {
 
     return result;
 }
-
